@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t rsts:test .
+
+      - name: Install test dependencies
+        run: pip install pytest requests
+
+      - name: Run integration tests
+        run: pytest tests/ -v
