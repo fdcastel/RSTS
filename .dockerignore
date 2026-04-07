@@ -1,0 +1,7 @@
+tests/
+tmp/
+.github/
+.git/
+.gitignore
+.dockerignore
+*.md
