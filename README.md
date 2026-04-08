@@ -8,12 +8,29 @@ Single state file. Zero external dependencies. Fully observable via JSON.
 
 ## Quick Start
 
+### Docker
 ```bash
 docker run -d \
   -p 8080:80 \
   -v /opt/app1/data:/data \
   -e RSTS_SERVER_NAME=server-1 \
   ghcr.io/fdcastel/rsts
+```
+
+### Bash
+```bash
+export RSTS_DATA_DIR="/tmp/rsts/data"
+export RSTS_SERVER_NAME="server-1"
+export RSTS_PORT="8080"
+uv run https://raw.githubusercontent.com/fdcastel/RSTS/master/app.py
+```
+
+### Powershell
+```powershell
+$env:RSTS_DATA_DIR = "/tmp/rsts/data"
+$env:RSTS_SERVER_NAME = "server-1"
+$env:RSTS_PORT = "8080"
+uv run https://raw.githubusercontent.com/fdcastel/RSTS/master/app.py
 ```
 
 Demonstration scripts for migrating workloads:
