@@ -1,11 +1,18 @@
 import os
 import random
+import signal
 import socket
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, jsonify
+
+# Python running as PID 1 (e.g. in Docker) ignores SIGTERM by default because
+# the kernel suppresses default signal actions for init processes. Explicitly
+# install a handler so 'docker stop' causes a clean, immediate shutdown.
+signal.signal(signal.SIGTERM, lambda _sig, _frame: sys.exit(0))
 
 app = Flask(__name__)
 
