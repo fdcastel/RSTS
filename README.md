@@ -12,11 +12,13 @@ Single state file. Zero external dependencies. Fully observable via JSON.
 docker run -d \
   -p 8080:80 \
   -v /opt/app1/data:/data \
-  -e SERVER_NAME=server-1 \
+  -e RSTS_SERVER_NAME=server-1 \
   ghcr.io/fdcastel/rsts
 ```
 
-A simple demonstration script for migrating workloads can be found in [`example.sh`](example.sh).
+Demonstration scripts for migrating workloads:
+- [`docker-example.sh`](docker-example.sh) — Docker-based demo (Linux/macOS)
+- [`example.ps1`](example.ps1) — `uv`-based demo, no Docker required (PowerShell 7+, Windows and Linux)
 
 ## Endpoints
 
@@ -64,8 +66,9 @@ Overwrites `state.txt` with `<value>`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATA_DIR` | `/data` | Directory for persistent state |
-| `SERVER_NAME` | `<hostname>` | Override reported server name |
+| `RSTS_DATA_DIR` | `/data` | Directory for persistent state |
+| `RSTS_SERVER_NAME` | `<hostname>` | Override reported server name |
+| `RSTS_PORT` | `80` | Port to listen on |
 
 ## How It Works
 

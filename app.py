@@ -1,3 +1,7 @@
+# /// script
+# dependencies = ["flask"]
+# ///
+
 import os
 import random
 import signal
@@ -22,9 +26,10 @@ STARTED_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 write_count = 0
 
 # --- Configuration ---
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
-_SERVER_NAME = os.environ.get("SERVER_NAME") or socket.gethostname()
+DATA_DIR = os.environ.get("RSTS_DATA_DIR", "/data")
+_SERVER_NAME = os.environ.get("RSTS_SERVER_NAME") or socket.gethostname()
 HOSTNAME = socket.gethostname()
+PORT = int(os.environ.get("RSTS_PORT", "80"))
 
 # --- RSTS acronym expansions (the important stuff) ---
 ACRONYMS = [
@@ -91,4 +96,4 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=PORT)

@@ -29,7 +29,7 @@ docker run -d --rm \
   --name rsts-location-a \
   -p ${PORT}:80 \
   -v "${DATA_SRC}:/data" \
-  -e SERVER_NAME=location-a \
+  -e RSTS_SERVER_NAME=location-a \
   "$IMAGE"
 
 echo "      Waiting for service to be ready..."
@@ -62,7 +62,7 @@ docker run -d --rm \
   --name rsts-location-b \
   -p ${PORT}:80 \
   -v "${DATA_DST}:/data" \
-  -e SERVER_NAME=location-b \
+  -e RSTS_SERVER_NAME=location-b \
   "$IMAGE"
 
 echo "      Waiting for service to be ready..."
