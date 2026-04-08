@@ -105,29 +105,29 @@ class TestWrite:
     """T4-T8: write endpoint."""
 
     def test_post_write(self, container):
-        r = requests.post(f"{container.url}/write/hello")
+        r = requests.post(f"{container.url}/state/hello")
         assert r.status_code == 200
         body = r.json()
         assert body == {"status": "ok", "written": "hello"}
 
     def test_data_persists_after_write(self, container):
-        requests.post(f"{container.url}/write/hello")
+        requests.post(f"{container.url}/state/hello")
         r = requests.get(f"{container.url}/")
         assert r.json()["data"] == "hello"
 
     def test_write_count_increments(self, container):
-        requests.post(f"{container.url}/write/a")
+        requests.post(f"{container.url}/state/a")
         r = requests.get(f"{container.url}/")
         assert r.json()["write_count"] == 1
 
     def test_get_write_also_works(self, container):
-        requests.get(f"{container.url}/write/world")
+        requests.get(f"{container.url}/state/world")
         r = requests.get(f"{container.url}/")
         assert r.json()["data"] == "world"
 
     def test_write_count_accumulates(self, container):
-        requests.post(f"{container.url}/write/a")
-        requests.post(f"{container.url}/write/b")
+        requests.post(f"{container.url}/state/a")
+        requests.post(f"{container.url}/state/b")
         r = requests.get(f"{container.url}/")
         assert r.json()["write_count"] == 2
 
@@ -140,7 +140,7 @@ class TestRestart:
         try:
             # First container
             c1 = _Container(data_dir=data_dir)
-            requests.post(f"{c1.url}/write/persisted")
+            requests.post(f"{c1.url}/state/persisted")
             r1 = requests.get(f"{c1.url}/")
             id1 = r1.json()["instance_id"]
             c1.stop()

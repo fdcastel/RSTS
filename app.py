@@ -70,7 +70,7 @@ def index():
     )
 
 
-@app.route("/write/<value>", methods=["GET", "POST"])
+@app.route("/state/<value>", methods=["GET", "POST"])
 def write(value: str):
     global write_count
     _state_file().write_text(value)

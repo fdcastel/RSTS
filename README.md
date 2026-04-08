@@ -35,7 +35,11 @@ Returns full status:
 }
 ```
 
-### `GET|POST /write/<value>`
+### `GET /state/<value>`
+
+Returns the current state value.
+
+### `POST /state/<value>`
 
 Overwrites `state.txt` with `<value>`:
 
