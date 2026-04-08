@@ -1,4 +1,4 @@
-# RSTS — Relocatable Stateful Test Service
+# RSTS: Relocatable Stateful Test Service
 
 [![CI](https://github.com/fdcastel/RSTS/actions/workflows/ci.yml/badge.svg)](https://github.com/fdcastel/RSTS/actions/workflows/ci.yml)
 
@@ -15,6 +15,8 @@ docker run -d \
   -e SERVER_NAME=server-1 \
   ghcr.io/fdcastel/rsts
 ```
+
+A simple demonstration script for migrating workloads can be found in [`example.sh`](example.sh).
 
 ## Endpoints
 
