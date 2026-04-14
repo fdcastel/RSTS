@@ -1,7 +1,5 @@
 # RSTS: Relocatable Stateful Test Service
 
-[![CI](https://github.com/fdcastel/RSTS/actions/workflows/ci.yml/badge.svg)](https://github.com/fdcastel/RSTS/actions/workflows/ci.yml)
-
 A minimal Dockerized HTTP service that proves your infrastructure can move stateful workloads correctly.
 
 Single state file. Zero external dependencies. Fully observable via JSON.
