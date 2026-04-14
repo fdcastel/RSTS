@@ -27,7 +27,7 @@ write_count = 0
 
 # --- Configuration ---
 DATA_DIR = os.environ.get("RSTS_DATA_DIR", "/data")
-_SERVER_NAME = os.environ.get("RSTS_SERVER_NAME") or socket.gethostname()
+_SERVER_NAME = os.environ.get("RSTS_SERVER_NAME") or os.environ.get("SERVER_NAME") or socket.gethostname()
 HOSTNAME = socket.gethostname()
 PORT = int(os.environ.get("RSTS_PORT", "80"))
 
