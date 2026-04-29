@@ -38,6 +38,7 @@ _SERVER_NAME = os.environ.get("RSTS_SERVER_NAME") or os.environ.get("SERVER_NAME
 HOSTNAME = socket.gethostname()
 PORT = int(os.environ.get("RSTS_PORT", "80"))
 LOG_FORMAT = os.environ.get("RSTS_LOG_FORMAT", "").lower()
+SEED_MAX_BYTES = int(os.environ.get("RSTS_SEED_MAX_BYTES", str(1024 * 1024 * 1024)))  # 1 GB default cap
 
 # --- RSTS acronym expansions (the important stuff) ---
 ACRONYMS = [
@@ -119,6 +120,17 @@ def write(value: str):
     write_count += 1
     _log_event("write", value=value, count=write_count)
     return jsonify(status="ok", written=value)
+
+
+@app.route("/seed/<int:size_bytes>", methods=["POST"])
+def seed(size_bytes: int):
+    if size_bytes < 0:
+        return jsonify(error="size must be non-negative"), 400
+    if size_bytes > SEED_MAX_BYTES:
+        return jsonify(error="size exceeds RSTS_SEED_MAX_BYTES", max=SEED_MAX_BYTES), 413
+    rng = random.Random(f"{_SERVER_NAME}:{size_bytes}")
+    Path(DATA_DIR, "seed.bin").write_bytes(rng.randbytes(size_bytes))
+    return jsonify(seeded_bytes=size_bytes)
 
 
 @app.route("/checksum")

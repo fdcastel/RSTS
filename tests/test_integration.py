@@ -190,6 +190,35 @@ class TestChecksum:
             shutil.rmtree(data_dir, ignore_errors=True)
 
 
+class TestSeed:
+    """C.2: POST /seed/<bytes> writes pseudorandom bytes to seed.bin."""
+
+    def test_seed_writes_requested_size_and_changes_checksum(self, container):
+        before = requests.get(f"{container.url}/checksum").json()["sha256"]
+        r = requests.post(f"{container.url}/seed/1024")
+        assert r.status_code == 200
+        assert r.json() == {"seeded_bytes": 1024}
+        after = requests.get(f"{container.url}/checksum").json()["sha256"]
+        assert before != after
+
+    def test_seed_is_deterministic_for_same_server_and_size(self, container):
+        sha_a = requests.post(f"{container.url}/seed/4096") and requests.get(f"{container.url}/checksum").json()["sha256"]
+        sha_b = requests.post(f"{container.url}/seed/4096") and requests.get(f"{container.url}/checksum").json()["sha256"]
+        assert sha_a == sha_b
+
+    def test_seed_rejects_oversize(self):
+        data_dir = tempfile.mkdtemp(prefix="rsts-seed-cap-")
+        try:
+            c = _Container(data_dir=data_dir, env={"RSTS_SEED_MAX_BYTES": "1024"})
+            r = requests.post(f"{c.url}/seed/2048")
+            assert r.status_code == 413
+            body = r.json()
+            assert body["max"] == 1024
+            c.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
 class TestFail:
     """D.1: POST /fail/<seconds> makes /health return 500 for the window."""
 
