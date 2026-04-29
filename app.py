@@ -39,6 +39,7 @@ HOSTNAME = socket.gethostname()
 PORT = int(os.environ.get("RSTS_PORT", "80"))
 LOG_FORMAT = os.environ.get("RSTS_LOG_FORMAT", "").lower()
 SEED_MAX_BYTES = int(os.environ.get("RSTS_SEED_MAX_BYTES", str(1024 * 1024 * 1024)))  # 1 GB default cap
+TCP_PORT = int(os.environ.get("RSTS_TCP_PORT", "0"))  # 0 disables the TCP echo listener
 
 # --- RSTS acronym expansions (the important stuff) ---
 ACRONYMS = [
@@ -84,9 +85,37 @@ def _ensure_state():
         path.write_text("initialized")
 
 
+def _tcp_echo_server(port: int) -> None:
+    """Accept TCP connections and reply with 'RSTS-ECHO\\n<server-name>\\n', then close.
+
+    Probe-grade: a single bad client should not kill the listener.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("0.0.0.0", port))
+    sock.listen(5)
+    payload = f"RSTS-ECHO\n{_SERVER_NAME}\n".encode()
+    while True:
+        try:
+            conn, _ = sock.accept()
+            try:
+                conn.sendall(payload)
+            finally:
+                conn.close()
+        except OSError:
+            continue
+
+
+def _start_tcp_echo_if_configured() -> None:
+    if TCP_PORT > 0:
+        threading.Thread(target=_tcp_echo_server, args=(TCP_PORT,), daemon=True).start()
+        _log_event("tcp_echo_started", tcp_port=TCP_PORT)
+
+
 # Initialize on import
 _ensure_state()
 _log_event("startup", port=PORT, data_dir=DATA_DIR)
+_start_tcp_echo_if_configured()
 
 
 @app.route("/")

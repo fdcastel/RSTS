@@ -9,6 +9,7 @@ Run with:    pytest tests/ -v
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -38,12 +39,19 @@ class _Container:
 
     _next_port = BASE_PORT
 
-    def __init__(self, *, data_dir: str, env: dict[str, str] | None = None):
+    def __init__(
+        self,
+        *,
+        data_dir: str,
+        env: dict[str, str] | None = None,
+        tcp_port: int | None = None,
+    ):
         port = _Container._next_port
         _Container._next_port += 1
         self.port = port
         self.url = f"http://localhost:{port}"
         self.name = f"rsts-test-{port}"
+        self.tcp_host_port: int | None = None
 
         cmd = [
             "docker", "run", "-d",
@@ -51,6 +59,10 @@ class _Container:
             "-p", f"{port}:80",
             "-v", f"{data_dir}:/data",
         ]
+        if tcp_port is not None:
+            self.tcp_host_port = _Container._next_port
+            _Container._next_port += 1
+            cmd += ["-p", f"{self.tcp_host_port}:{tcp_port}"]
         for k, v in (env or {}).items():
             cmd += ["-e", f"{k}={v}"]
         cmd.append(IMAGE)
@@ -189,6 +201,44 @@ class TestChecksum:
         finally:
             shutil.rmtree(data_dir, ignore_errors=True)
 
+
+class TestTcpEcho:
+    """A.2: optional raw-TCP echo listener gated on RSTS_TCP_PORT."""
+
+    def test_tcp_echo_responds_with_server_name(self):
+        data_dir = tempfile.mkdtemp(prefix="rsts-tcp-")
+        try:
+            c = _Container(
+                data_dir=data_dir,
+                env={"RSTS_TCP_PORT": "9000", "RSTS_SERVER_NAME": "tcp-probe"},
+                tcp_port=9000,
+            )
+
+            # The TCP listener may take a moment to bind after startup.
+            deadline = time.monotonic() + 5
+            last_err: Exception | None = None
+            while time.monotonic() < deadline:
+                try:
+                    with socket.create_connection(("localhost", c.tcp_host_port), timeout=2) as s:
+                        s.settimeout(2)
+                        chunks = []
+                        while True:
+                            data = s.recv(1024)
+                            if not data:
+                                break
+                            chunks.append(data)
+                        payload = b"".join(chunks)
+                    break
+                except (ConnectionRefusedError, socket.timeout) as e:  # noqa: PERF203
+                    last_err = e
+                    time.sleep(0.3)
+            else:
+                raise AssertionError(f"TCP echo never accepted: {last_err}")
+
+            assert payload == b"RSTS-ECHO\ntcp-probe\n", f"got {payload!r}"
+            c.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
 
 class TestSeed:
     """C.2: POST /seed/<bytes> writes pseudorandom bytes to seed.bin."""
