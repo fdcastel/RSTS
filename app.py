@@ -31,6 +31,7 @@ _STARTED_DT = datetime.now(timezone.utc)
 STARTED_AT = _STARTED_DT.strftime("%Y-%m-%dT%H:%M:%SZ")
 write_count = 0
 _unhealthy_until = 0.0  # monotonic deadline; assumes single-threaded Flask dev server
+_health_delay_ms = 0  # latency added to /health responses; cleared by POST /slow/0
 
 # --- Configuration ---
 DATA_DIR = os.environ.get("RSTS_DATA_DIR", "/data")
@@ -191,8 +192,17 @@ def exit_(code: int):
     return jsonify(exiting_with=code)
 
 
+@app.route("/slow/<int:ms>", methods=["POST"])
+def slow(ms: int):
+    global _health_delay_ms
+    _health_delay_ms = max(0, ms)
+    return jsonify(slow_ms=_health_delay_ms)
+
+
 @app.route("/health")
 def health():
+    if _health_delay_ms:
+        time.sleep(_health_delay_ms / 1000)
     if time.monotonic() < _unhealthy_until:
         return jsonify(status="unhealthy"), 500
     return jsonify(status="ok")

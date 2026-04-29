@@ -287,6 +287,35 @@ class TestFail:
         assert requests.get(f"{container.url}/health").status_code == 200
 
 
+class TestSlow:
+    """D.3: POST /slow/<ms> adds latency to /health until cleared."""
+
+    def test_slow_adds_latency_until_cleared(self, container):
+        # Baseline: /health is fast.
+        t0 = time.monotonic()
+        requests.get(f"{container.url}/health")
+        baseline = time.monotonic() - t0
+
+        # Set 600ms delay.
+        r = requests.post(f"{container.url}/slow/600")
+        assert r.status_code == 200
+        assert r.json() == {"slow_ms": 600}
+
+        t0 = time.monotonic()
+        requests.get(f"{container.url}/health")
+        slow = time.monotonic() - t0
+        assert slow >= 0.55, f"expected >= 0.55s, got {slow:.3f}s"
+        assert slow > baseline + 0.4
+
+        # Clear with /slow/0.
+        r = requests.post(f"{container.url}/slow/0")
+        assert r.json() == {"slow_ms": 0}
+        t0 = time.monotonic()
+        requests.get(f"{container.url}/health")
+        cleared = time.monotonic() - t0
+        assert cleared < 0.3, f"expected fast after clear, got {cleared:.3f}s"
+
+
 class TestExit:
     """D.2: POST /exit/<code> exits the process with status."""
 
