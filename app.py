@@ -3,6 +3,7 @@
 # ///
 
 import hashlib
+import json
 import os
 import random
 import signal
@@ -36,6 +37,7 @@ DATA_DIR = os.environ.get("RSTS_DATA_DIR", "/data")
 _SERVER_NAME = os.environ.get("RSTS_SERVER_NAME") or os.environ.get("SERVER_NAME") or socket.gethostname()
 HOSTNAME = socket.gethostname()
 PORT = int(os.environ.get("RSTS_PORT", "80"))
+LOG_FORMAT = os.environ.get("RSTS_LOG_FORMAT", "").lower()
 
 # --- RSTS acronym expansions (the important stuff) ---
 ACRONYMS = [
@@ -61,6 +63,18 @@ def _state_file() -> Path:
     return Path(DATA_DIR) / "state.txt"
 
 
+def _log_event(event: str, **kwargs) -> None:
+    if LOG_FORMAT == "jsonl":
+        record = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            "server": _SERVER_NAME,
+            "instance_id": INSTANCE_ID,
+            **kwargs,
+        }
+        print(json.dumps(record), flush=True)
+
+
 def _ensure_state():
     """Create DATA_DIR and state.txt if they don't exist."""
     path = _state_file()
@@ -71,6 +85,7 @@ def _ensure_state():
 
 # Initialize on import
 _ensure_state()
+_log_event("startup", port=PORT, data_dir=DATA_DIR)
 
 
 @app.route("/")
@@ -102,6 +117,7 @@ def write(value: str):
     global write_count
     _state_file().write_text(value)
     write_count += 1
+    _log_event("write", value=value, count=write_count)
     return jsonify(status="ok", written=value)
 
 

@@ -6,6 +6,7 @@ Build with:  docker build -t rsts:test .
 Run with:    pytest tests/ -v
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -255,6 +256,63 @@ class TestRestart:
             assert body["write_count"] == 0
             assert body["instance_id"] != id1
             c2.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
+class TestJsonlLogs:
+    """E.1: RSTS_LOG_FORMAT=jsonl emits one JSON event per line to stdout."""
+
+    def test_startup_and_write_events_emitted(self):
+        data_dir = tempfile.mkdtemp(prefix="rsts-jsonl-")
+        try:
+            c = _Container(data_dir=data_dir, env={"RSTS_LOG_FORMAT": "jsonl"})
+            requests.post(f"{c.url}/state/jsonl-probe")
+
+            # Pull container logs and find well-formed JSON lines.
+            logs = subprocess.run(
+                ["docker", "logs", c.name],
+                check=True, capture_output=True, text=True,
+            ).stdout
+
+            events = []
+            for line in logs.splitlines():
+                line = line.strip()
+                if not line.startswith("{"):
+                    continue
+                try:
+                    events.append(json.loads(line))
+                except ValueError:
+                    pass
+
+            event_names = [e.get("event") for e in events]
+            assert "startup" in event_names
+            assert "write" in event_names
+
+            write_event = next(e for e in events if e["event"] == "write")
+            assert write_event["value"] == "jsonl-probe"
+            assert write_event["count"] == 1
+            assert "ts" in write_event and "instance_id" in write_event
+            c.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+    def test_default_format_emits_no_jsonl(self):
+        """Without RSTS_LOG_FORMAT, write events are not emitted."""
+        data_dir = tempfile.mkdtemp(prefix="rsts-jsonl-off-")
+        try:
+            c = _Container(data_dir=data_dir)
+            requests.post(f"{c.url}/state/quiet")
+            logs = subprocess.run(
+                ["docker", "logs", c.name],
+                check=True, capture_output=True, text=True,
+            ).stdout
+            for line in logs.splitlines():
+                line = line.strip()
+                if line.startswith("{"):
+                    parsed = json.loads(line)
+                    assert parsed.get("event") not in {"startup", "write"}
+            c.stop()
         finally:
             shutil.rmtree(data_dir, ignore_errors=True)
 
