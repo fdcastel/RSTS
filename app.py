@@ -8,6 +8,8 @@ import random
 import signal
 import socket
 import sys
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +29,7 @@ INSTANCE_ID = str(uuid.uuid4())
 _STARTED_DT = datetime.now(timezone.utc)
 STARTED_AT = _STARTED_DT.strftime("%Y-%m-%dT%H:%M:%SZ")
 write_count = 0
+_unhealthy_until = 0.0  # monotonic deadline; assumes single-threaded Flask dev server
 
 # --- Configuration ---
 DATA_DIR = os.environ.get("RSTS_DATA_DIR", "/data")
@@ -112,8 +115,23 @@ def checksum():
     return jsonify(sha256=h.hexdigest())
 
 
+@app.route("/fail/<int:seconds>", methods=["POST"])
+def fail(seconds: int):
+    global _unhealthy_until
+    _unhealthy_until = time.monotonic() + seconds
+    return jsonify(unhealthy_for=seconds)
+
+
+@app.route("/exit/<int:code>", methods=["POST"])
+def exit_(code: int):
+    threading.Timer(0.1, lambda: os._exit(code)).start()
+    return jsonify(exiting_with=code)
+
+
 @app.route("/health")
 def health():
+    if time.monotonic() < _unhealthy_until:
+        return jsonify(status="unhealthy"), 500
     return jsonify(status="ok")
 
 

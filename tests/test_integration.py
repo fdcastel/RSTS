@@ -189,6 +189,50 @@ class TestChecksum:
             shutil.rmtree(data_dir, ignore_errors=True)
 
 
+class TestFail:
+    """D.1: POST /fail/<seconds> makes /health return 500 for the window."""
+
+    def test_health_unhealthy_during_window_then_recovers(self, container):
+        assert requests.get(f"{container.url}/health").status_code == 200
+        r = requests.post(f"{container.url}/fail/2")
+        assert r.status_code == 200
+        assert r.json() == {"unhealthy_for": 2}
+
+        r = requests.get(f"{container.url}/health")
+        assert r.status_code == 500
+        assert r.json()["status"] == "unhealthy"
+
+        # After the window, /health recovers.
+        time.sleep(2.5)
+        assert requests.get(f"{container.url}/health").status_code == 200
+
+
+class TestExit:
+    """D.2: POST /exit/<code> exits the process with status."""
+
+    def test_exit_terminates_container(self):
+        data_dir = tempfile.mkdtemp(prefix="rsts-exit-")
+        try:
+            c = _Container(data_dir=data_dir)
+            r = requests.post(f"{c.url}/exit/0")
+            assert r.status_code == 200
+            assert r.json() == {"exiting_with": 0}
+
+            # Process should be gone within a couple of seconds.
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    requests.get(f"{c.url}/health", timeout=0.5)
+                except requests.RequestException:
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("Container still responding after /exit")
+            c.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
 class TestRestart:
     """T10: volume persistence across restart."""
 
