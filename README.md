@@ -108,13 +108,30 @@ Drives `/health` to `500 unhealthy` for the next `<seconds>` seconds, then recov
 
 Terminates the process with the given exit code (after a short delay so the response can be sent). Useful for validating container restart policies.
 
+### `POST /slow/<ms>`
+
+Adds `<ms>` milliseconds of latency to every `/health` response until cleared. `POST /slow/0` clears it. Useful for tuning compose healthcheck `timeout` / `interval` / `start_period` against realistic slowness.
+
+```json
+{ "slow_ms": 600 }
+```
+
+### TCP echo (optional)
+
+When `RSTS_TCP_PORT` is set, RSTS opens a raw-TCP listener on that port that replies with `RSTS-ECHO\n<server-name>\n` and closes. Probes non-HTTP forwarding paths through a reverse proxy (Mailpit SMTP, Clickhouse, etc.):
+
+```bash
+docker run -d -p 8080:80 -p 9000:9000 -e RSTS_TCP_PORT=9000 ghcr.io/fdcastel/rsts
+echo | nc localhost 9000   # -> RSTS-ECHO\n<server-name>\n
+```
+
 ### `GET /health`
 
 ```json
 { "status": "ok" }
 ```
 
-Returns `500 unhealthy` while a `/fail` window is active.
+Returns `500 unhealthy` while a `/fail` window is active. Adds whatever delay was set via `/slow/<ms>` before responding.
 
 ## Environment Variables
 
@@ -140,6 +157,8 @@ RSTS is a "truth probe" for your platform. Deploy it, move it, and verify:
 - **`/checksum`** — sha256 over every file in the data dir; assert byte-perfect backup/restore.
 - **`request`** — peer IP and `X-Forwarded-*` headers as observed by RSTS; verify your reverse proxy is forwarding correctly.
 - **`POST /fail/<sec>` and `POST /exit/<code>`** — fault injection so smoke-test/rollback and restart-policy paths can be exercised deterministically.
+- **`POST /slow/<ms>`** — latency injection on `/health`; tune compose healthcheck timeouts against realistic slowness.
+- **`RSTS_TCP_PORT`** — optional raw-TCP echo listener; probes non-HTTP forwarding through a reverse proxy.
 
 ## License
 
