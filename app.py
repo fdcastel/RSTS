@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, jsonify
+from flask import request as flask_request
 
 # Python running as PID 1 (e.g. in Docker) ignores SIGTERM by default because
 # the kernel suppresses default signal actions for init processes. Explicitly
@@ -22,7 +23,8 @@ app = Flask(__name__)
 
 # --- Startup state (reset on each container start) ---
 INSTANCE_ID = str(uuid.uuid4())
-STARTED_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+_STARTED_DT = datetime.now(timezone.utc)
+STARTED_AT = _STARTED_DT.strftime("%Y-%m-%dT%H:%M:%SZ")
 write_count = 0
 
 # --- Configuration ---
@@ -70,6 +72,7 @@ _ensure_state()
 @app.route("/")
 def index():
     data = _state_file().read_text()
+    uptime_seconds = (datetime.now(timezone.utc) - _STARTED_DT).total_seconds()
     return jsonify(
         server=_SERVER_NAME,
         hostname=HOSTNAME,
@@ -77,8 +80,16 @@ def index():
         data=data,
         instance_id=INSTANCE_ID,
         started_at=STARTED_AT,
+        uptime_seconds=uptime_seconds,
         write_count=write_count,
         rsts_stands_for=random.choice(ACRONYMS),
+        request=dict(
+            peer_ip=flask_request.remote_addr,
+            x_forwarded_for=flask_request.headers.get("X-Forwarded-For"),
+            x_real_ip=flask_request.headers.get("X-Real-IP"),
+            x_forwarded_proto=flask_request.headers.get("X-Forwarded-Proto"),
+            host=flask_request.headers.get("Host"),
+        ),
     )
 
 

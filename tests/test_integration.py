@@ -86,8 +86,8 @@ class TestIndex:
         body = r.json()
         required = {
             "server", "hostname", "data_dir", "data",
-            "instance_id", "started_at", "write_count",
-            "rsts_stands_for",
+            "instance_id", "started_at", "uptime_seconds", "write_count",
+            "rsts_stands_for", "request",
         }
         assert required <= set(body.keys())
 
@@ -99,6 +99,29 @@ class TestIndex:
         r = requests.get(f"{container.url}/")
         val = r.json()["rsts_stands_for"]
         assert isinstance(val, str) and len(val) > 0
+
+    def test_uptime_seconds_is_nonnegative_and_increases(self, container):
+        t1 = requests.get(f"{container.url}/").json()["uptime_seconds"]
+        assert isinstance(t1, (int, float)) and t1 >= 0
+        time.sleep(1.1)
+        t2 = requests.get(f"{container.url}/").json()["uptime_seconds"]
+        assert t2 > t1
+
+    def test_request_subobject_reports_forwarded_headers(self, container):
+        r = requests.get(
+            f"{container.url}/",
+            headers={
+                "X-Forwarded-For": "203.0.113.7",
+                "X-Real-IP": "203.0.113.7",
+                "X-Forwarded-Proto": "https",
+            },
+        )
+        req = r.json()["request"]
+        assert req["x_forwarded_for"] == "203.0.113.7"
+        assert req["x_real_ip"] == "203.0.113.7"
+        assert req["x_forwarded_proto"] == "https"
+        assert req["peer_ip"]  # docker bridge IP, just non-empty
+        assert req["host"]
 
 
 class TestWrite:
