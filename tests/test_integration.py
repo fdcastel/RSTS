@@ -88,7 +88,7 @@ class TestIndex:
         required = {
             "server", "hostname", "data_dir", "data",
             "instance_id", "started_at", "uptime_seconds", "write_count",
-            "rsts_stands_for", "request",
+            "rsts_stands_for", "request", "meta",
         }
         assert required <= set(body.keys())
 
@@ -344,6 +344,33 @@ class TestJsonlLogs:
             c.stop()
         finally:
             shutil.rmtree(data_dir, ignore_errors=True)
+
+
+class TestMeta:
+    """C.3: any RSTS_META_* env var auto-publishes under top-level meta."""
+
+    def test_meta_contains_operator_supplied_keys(self):
+        data_dir = tempfile.mkdtemp(prefix="rsts-meta-")
+        try:
+            c = _Container(
+                data_dir=data_dir,
+                env={
+                    "RSTS_META_SCHEMA_VERSION": "v3",
+                    "RSTS_META_BACKUP_ID": "bak-2026-04-29",
+                },
+            )
+            meta = requests.get(f"{c.url}/").json()["meta"]
+            assert meta == {
+                "schema_version": "v3",
+                "backup_id": "bak-2026-04-29",
+            }
+            c.stop()
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+    def test_meta_is_empty_when_no_env_vars(self, container):
+        meta = requests.get(f"{container.url}/").json()["meta"]
+        assert meta == {}
 
 
 class TestServerNameOverride:

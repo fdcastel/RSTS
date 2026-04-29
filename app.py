@@ -93,6 +93,11 @@ _log_event("startup", port=PORT, data_dir=DATA_DIR)
 def index():
     data = _state_file().read_text()
     uptime_seconds = (datetime.now(timezone.utc) - _STARTED_DT).total_seconds()
+    meta = {
+        k[len("RSTS_META_"):].lower(): v
+        for k, v in os.environ.items()
+        if k.startswith("RSTS_META_")
+    }
     return jsonify(
         server=_SERVER_NAME,
         hostname=HOSTNAME,
@@ -103,6 +108,7 @@ def index():
         uptime_seconds=uptime_seconds,
         write_count=write_count,
         rsts_stands_for=random.choice(ACRONYMS),
+        meta=meta,
         request=dict(
             peer_ip=flask_request.remote_addr,
             x_forwarded_for=flask_request.headers.get("X-Forwarded-For"),
