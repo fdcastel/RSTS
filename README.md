@@ -126,6 +126,7 @@ Returns `500 unhealthy` while a `/fail` window is active.
 | `RSTS_LOG_FORMAT` | _(off)_ | Set to `jsonl` to emit one JSON event per line to stdout (`startup`, `write`) |
 | `RSTS_SEED_MAX_BYTES` | `1073741824` | Maximum size accepted by `POST /seed/<bytes>` (1 GB) |
 | `RSTS_META_*` | _(none)_ | Any var matching this prefix is echoed under `meta` in `GET /` (lowercased, prefix-stripped) |
+| `RSTS_TCP_PORT` | _(off)_ | If set, opens a raw-TCP listener that replies `RSTS-ECHO\n<server>\n` and closes — for probing non-HTTP forwarding paths |
 
 ## How It Works
 
