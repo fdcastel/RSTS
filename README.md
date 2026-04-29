@@ -49,10 +49,23 @@ Returns full status:
   "data": "initialized",
   "instance_id": "550e8400-e29b-41d4-a716-446655440000",
   "started_at": "2026-04-07T12:00:00Z",
+  "uptime_seconds": 42.7,
   "write_count": 0,
-  "rsts_stands_for": "Runs Somewhere, Then Somewhere-else"
+  "rsts_stands_for": "Runs Somewhere, Then Somewhere-else",
+  "meta": {},
+  "request": {
+    "peer_ip": "10.0.0.1",
+    "x_forwarded_for": null,
+    "x_real_ip": null,
+    "x_forwarded_proto": null,
+    "host": "localhost:8080"
+  }
 }
 ```
+
+`request` reports what RSTS observes about the incoming connection — useful for verifying that a reverse proxy in front of RSTS is forwarding `X-Forwarded-*` headers correctly.
+
+`meta` echoes any `RSTS_META_*` environment variable (lowercased, prefix-stripped) so operators can tag instances with arbitrary metadata (`RSTS_META_SCHEMA_VERSION`, `RSTS_META_BACKUP_ID`, etc.) without code changes.
 
 ### `GET /state/<value>`
 
@@ -69,13 +82,39 @@ Overwrites `state.txt` with `<value>`:
 }
 ```
 
-### `GET /health`
+### `GET /checksum`
+
+Returns sha256 over every file under `RSTS_DATA_DIR` (path + content). Lets backup/restore tests assert byte-perfect round-trip.
 
 ```json
 {
-  "status": "ok"
+  "sha256": "9a775ced6b0036b5f13fcc1b0d0d943f722639621db3f2eb922e4ddfc8aa2f51"
 }
 ```
+
+### `POST /seed/<bytes>`
+
+Writes `<bytes>` of deterministic pseudorandom data to `seed.bin` in the data dir. Useful for exercising backup throughput at realistic sizes. Bounded by `RSTS_SEED_MAX_BYTES` (default 1 GB); requests above the cap return 413.
+
+```json
+{ "seeded_bytes": 1048576 }
+```
+
+### `POST /fail/<seconds>`
+
+Drives `/health` to `500 unhealthy` for the next `<seconds>` seconds, then recovers. Lets smoke-test/rollback paths be exercised deterministically.
+
+### `POST /exit/<code>`
+
+Terminates the process with the given exit code (after a short delay so the response can be sent). Useful for validating container restart policies.
+
+### `GET /health`
+
+```json
+{ "status": "ok" }
+```
+
+Returns `500 unhealthy` while a `/fail` window is active.
 
 ## Environment Variables
 
@@ -84,6 +123,9 @@ Overwrites `state.txt` with `<value>`:
 | `RSTS_DATA_DIR` | `/data` | Directory for persistent state |
 | `RSTS_SERVER_NAME` | `<hostname>` | Override reported server name |
 | `RSTS_PORT` | `80` | Port to listen on |
+| `RSTS_LOG_FORMAT` | _(off)_ | Set to `jsonl` to emit one JSON event per line to stdout (`startup`, `write`) |
+| `RSTS_SEED_MAX_BYTES` | `1073741824` | Maximum size accepted by `POST /seed/<bytes>` (1 GB) |
+| `RSTS_META_*` | _(none)_ | Any var matching this prefix is echoed under `meta` in `GET /` (lowercased, prefix-stripped) |
 
 ## How It Works
 
@@ -92,8 +134,11 @@ RSTS is a "truth probe" for your platform. Deploy it, move it, and verify:
 - **`server` + `hostname`** — where is the workload running?
 - **`data`** — did state survive the move?
 - **`instance_id`** — was this a restart or a relocation?
-- **`started_at`** — when did this instance start?
+- **`started_at` / `uptime_seconds`** — when did this instance start, and how long has it been up? Same `instance_id` plus climbing `uptime_seconds` proves no restart happened (e.g. a no-op `compose up -d`).
 - **`write_count`** — resets on restart; proves continuity vs. fresh start
+- **`/checksum`** — sha256 over every file in the data dir; assert byte-perfect backup/restore.
+- **`request`** — peer IP and `X-Forwarded-*` headers as observed by RSTS; verify your reverse proxy is forwarding correctly.
+- **`POST /fail/<sec>` and `POST /exit/<code>`** — fault injection so smoke-test/rollback and restart-policy paths can be exercised deterministically.
 
 ## License
 
