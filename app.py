@@ -2,6 +2,7 @@
 # dependencies = ["flask"]
 # ///
 
+import hashlib
 import os
 import random
 import signal
@@ -99,6 +100,16 @@ def write(value: str):
     _state_file().write_text(value)
     write_count += 1
     return jsonify(status="ok", written=value)
+
+
+@app.route("/checksum")
+def checksum():
+    h = hashlib.sha256()
+    for p in sorted(Path(DATA_DIR).rglob("*")):
+        if p.is_file():
+            h.update(p.relative_to(DATA_DIR).as_posix().encode())
+            h.update(p.read_bytes())
+    return jsonify(sha256=h.hexdigest())
 
 
 @app.route("/health")

@@ -155,6 +155,40 @@ class TestWrite:
         assert r.json()["write_count"] == 2
 
 
+class TestChecksum:
+    """C.1: /checksum endpoint."""
+
+    def test_checksum_is_sha256_hex(self, container):
+        r = requests.get(f"{container.url}/checksum")
+        assert r.status_code == 200
+        sha = r.json()["sha256"]
+        assert isinstance(sha, str) and len(sha) == 64
+        int(sha, 16)  # raises if not valid hex
+
+    def test_checksum_changes_after_write(self, container):
+        before = requests.get(f"{container.url}/checksum").json()["sha256"]
+        requests.post(f"{container.url}/state/something-new")
+        after = requests.get(f"{container.url}/checksum").json()["sha256"]
+        assert before != after
+
+    def test_checksum_is_deterministic_across_processes(self):
+        """Same data dir -> same checksum even after a fresh container."""
+        data_dir = tempfile.mkdtemp(prefix="rsts-checksum-")
+        try:
+            c1 = _Container(data_dir=data_dir)
+            requests.post(f"{c1.url}/state/round-trip-me")
+            sha1 = requests.get(f"{c1.url}/checksum").json()["sha256"]
+            c1.stop()
+
+            c2 = _Container(data_dir=data_dir)
+            sha2 = requests.get(f"{c2.url}/checksum").json()["sha256"]
+            c2.stop()
+
+            assert sha1 == sha2
+        finally:
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
 class TestRestart:
     """T10: volume persistence across restart."""
 
